@@ -186,7 +186,61 @@ firebase functions:secrets:set GEMINI_API_KEY
 
 ---
 
-## Step 4: Implementing the Backend (Firebase Functions & Genkit)
+## Step 4: Explore the Project Structure
+
+Take a few minutes to familiarise yourself with the key files before you start coding.
+
+### Frontend (`src/`)
+
+```
+src/
+├── app/
+│   ├── components/
+│   │   └── chat/
+│   │       ├── chat.ts          ← Chat component logic
+│   │       ├── chat.html        ← Chat UI template
+│   │       └── chat.scss        ← Chat styles
+│   ├── models/
+│   │   └── chat.model.ts        ← TypeScript interfaces
+│   ├── services/
+│   │   └── ai/
+│   │       └── ai.service.ts    ← ⭐ You will build this
+│   └── utils/
+│       └── markdown-utils.ts    ← Markdown rendering helper
+└── environments/
+    ├── environment.ts           ← Production config
+    └── environment.development.ts ← Dev config
+```
+
+### Backend (`functions/src/`)
+
+```
+functions/src/
+└── index.ts     ← ⭐ Genkit agents & Firebase callable function
+```
+
+### Models (`chat.model.ts`)
+
+This file defines the TypeScript interfaces that are shared across the frontend. Understanding these will help you follow the data flow as you build the service and read the chat component code.
+
+| Interface | Fields | Purpose |
+|---|---|---|
+| `Message` | `text`, `formattedText?`, `sender`, `timestamp` | Represents a single chat bubble displayed in the UI. `sender` is either `'user'` or `'ai'`. `formattedText` holds the sanitised HTML version of the AI's markdown response. |
+| `ConversationMessage` | `role`, `content` | A lightweight history entry sent to the backend with each request. `role` is either `'user'` or `'model'` (matching Gemini's expected format). |
+| `WelcomeCapability` | `icon`, `title`, `description` | Describes one capability tile shown on the welcome screen before the user sends their first message. |
+
+### How the chat component works
+
+`chat.ts` already handles:
+
+1. Displaying the conversation
+2. Capturing user input via a reactive form
+3. Maintaining `conversationHistory` for multi-turn context
+4. Calling `aiService.sendMessage(query, history)` — which you will implement
+
+---
+
+## Step 5: Implementing the Backend (Firebase Functions & Genkit)
 
 Navigate to `functions/src/index.ts`. You will find several `// TODO` markers. Copy and paste the following snippets into their respective locations.
 
@@ -402,7 +456,7 @@ export const conciergeAgentFlow = onCallGenkit(GENKIT_FUNCTION_CONFIG, _concierg
 
 ---
 
-## Step 5: Implementing the Frontend (Angular AI Service)
+## Step 6: Implementing the Frontend (Angular AI Service)
 
 Navigate to `src/app/services/ai/ai.service.ts`.
 
@@ -439,13 +493,13 @@ export class AiService {
 
 ---
 
-## Step 6: Updating the UI
+## Step 7: Updating the UI
 
 Navigate to `src/app/app.html`.
 
 ### TODO: Replace all contents with the Chat component reference
 
-The root `app.html` template is the entry point of your Angular application. Replace all the existing placeholder content with a single reference to the `<app-chat>` component. This component (already built in the starter code) renders the full chat interface — the message list, input field, and send button — and wires up to the `AiService` you implemented in Step 5.
+The root `app.html` template is the entry point of your Angular application. Replace all the existing placeholder content with a single reference to the `<app-chat>` component. This component (already built in the starter code) renders the full chat interface — the message list, input field, and send button — and wires up to the `AiService` you implemented in Step 6.
 
 ```html
 <app-chat />
@@ -453,7 +507,7 @@ The root `app.html` template is the entry point of your Angular application. Rep
 
 ---
 
-## Step 7: Deployment
+## Step 8: Deployment
 
 Finally, deploy your application to Firebase.
 
