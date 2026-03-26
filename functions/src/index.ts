@@ -20,10 +20,10 @@ import {
 } from './system-prompt';
 import {onCallGenkit} from 'firebase-functions/https';
 
-// TODO: Define your Gemini API Key stored as secret
+// TODO: Define your Gemini API Key secret
 
 
-// TODO: Enable Firebase telemetry logging - allows to be able to monitor Genkit Features
+// TODO: Enable Firebase telemetry logging
 
 
 // TODO: Configure Genkit
@@ -32,11 +32,11 @@ import {onCallGenkit} from 'firebase-functions/https';
 // TODO: Configure Genkit Function Config
 
 
-// TODO: Schema for a single conversation message passed from the client
+// TODO: Schema for conversation messages
 
 
 
-// TODO: Converts client-side history into Genkit MessageData parts.
+// TODO: Convert history to Genkit format
 
 
 // TODO: Define Agent Tool Logics
