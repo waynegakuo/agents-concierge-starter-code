@@ -17,17 +17,13 @@ By the end of this workshop you will have a fully working chat application that:
 
 ### Architecture overview
 
-```
-Angular Frontend (chat UI)
-        │
-        ▼
-Firebase Cloud Function  ──── Concierge Agent (Genkit Flow)
-                                     │
-              ┌──────────────────────┼────────────────────────┐
-              ▼                      ▼                         ▼                      ▼
-     Day Trip Agent         Foodie Agent         Weekend Guide Agent    Transport Agent
-     (Gemini + Search)    (Gemini + Search)      (Gemini + Search)    (Gemini + Search)
-```
+![Agent Concierge Architecture](public/assets/documentation/architecture.png)
+
+| Layer | Responsibility |
+|---|---|
+| **Frontend** | Angular 21 Chat UI with Signal-based state management. |
+| **Orchestrator** | Firebase Cloud Function + Genkit Flow (Concierge Agent). |
+| **Specialists** | Domain-specific agents (Day Trip, Foodie, etc.) with Search tools. |
 
 ### What you'll learn
 
@@ -47,16 +43,69 @@ Firebase Cloud Function  ──── Concierge Agent (Genkit Flow)
 
 ---
 
-## Step 1: Clone the Repository
+## Step 1: Firebase Project Setup
 
-Open your Google Cloud Shell and run the following command to clone the project. This downloads the starter code — a pre-built Angular app with placeholder `// TODO` markers where you will add the AI logic throughout this workshop.
+### 1.1 Create a Firebase Project
+
+Before anything else, you need a Firebase project to host your functions and frontend. Selecting a project here automatically creates a corresponding **Google Cloud Project** in the Google Cloud Console.
+
+1. **Open Firebase Console** — Navigate to [Firebase Console](https://console.firebase.google.com/)
+2. **Create New Project**
+   - Click **"Create a new Firebase project"**
+   - Enter a project name (e.g., **"agent-concierge"** or your preferred name)
+   - Google Analytics is optional — you can skip it for this workshop
+   - Click **"Create project"** and wait for it to be provisioned
+
+### 1.2 Enable Billing
+
+Firebase Cloud Functions and Secret Manager require billing to be enabled on your Google Cloud project. You must do this before proceeding, otherwise later steps (deploying functions and storing secrets) will fail.
+
+1. In the [Firebase Console](https://console.firebase.google.com/), select your newly created project.
+2. In the bottom-left corner, click on your current plan (e.g., **"Spark"**) → **"Upgrade"**.
+3. Select the **Blaze (pay-as-you-go)** plan.
+4. Choose your billing account (or **"Google Cloud Platform Trial Billing Account"** if available).
+5. Set a budget alert (e.g., **$2 USD**) to avoid unexpected charges.
+6. Click **"Link Cloud Billing Account"** to confirm.
+
+> **Note:** The Blaze plan is pay-as-you-go, but Firebase offers a generous free tier. For a workshop project of this scale, you are very unlikely to incur any charges.
+
+### 1.3 Identify your Google Cloud Project
+
+Your Firebase project is identical to a Google Cloud project. You will perform the rest of the development steps within this project's workspace in the **Google Cloud Console**.
+
+1. Visit the [Google Cloud Console](https://console.cloud.google.com/).
+2. Click on the project dropdown at the top.
+3. Select the **"All"** tab if you don't see your newly created Firebase project under "Recent".
+4. Once you've selected your project, you're ready to proceed to the next step.
+
+---
+
+## Step 2: Clone the Repository
+
+To begin, you need to open your development environment in the Google Cloud Console.
+
+1. **Activate Cloud Shell**: At the top right of the Google Cloud Console, click the **Activate Cloud Shell** icon (`>_`). This opens a terminal at the bottom of your browser window.
+2. **Open Editor**: In the Cloud Shell toolbar, click the **"Open Editor"** button. This transitions the interface to show the code editor alongside the terminal.
+3. **Select your project**: Ensure you have the correct Firebase/Google Cloud project selected as described in Step 1.3.
+
+Now, run the following command in the **Cloud Shell Terminal** to clone the project. This downloads the starter code — a pre-built Angular app with placeholder `// TODO` markers where you will add the AI logic throughout this workshop.
 
 ```bash
-git clone https://github.com/waynegakuo/agent-concierge-starter-code.git
-cd agent-concierge-starter-code
+git clone https://github.com/waynegakuo/agents-concierge-starter-code.git
+cd agents-concierge-starter-code
 ```
 
-## Step 2: Environment Setup
+> **Note:** Once you've cloned the project, you can toggle back and forth between the shell and the editor as needed. The "Open Editor" button will change to **"Open Terminal"** (or return back to the editor) depending on your current view.
+>
+> If you prefer to use a terminal within the editor itself, select **"Terminal"** → **"New Terminal"** from the top menu. This will open a terminal pane at the bottom of the editor. If you choose this option, remember to `cd agents-concierge-starter-code` to ensure you are in the correct directory for the steps that follow.
+
+> **Important:** Because you're using the Google Cloud online editor, sometimes hidden files cannot be seen (e.g., `.firebaserc`). You can see them by selecting **"View"** → **"Toggle Hidden Files"** from the top menu in the editor.
+
+---
+
+## Step 3: Environment Setup
+
+### 3.1 Install Dependencies
 
 Install the Angular CLI globally and the project dependencies. The `--force` flag is used to resolve any peer-dependency version conflicts that may arise between packages.
 
@@ -79,43 +128,11 @@ npm install --force
 cd ..
 ```
 
-## Step 3: Firebase Project Setup
-
-### 3.1 Create a Firebase Project
-
-Before anything else, you need a Firebase project to host your functions and frontend.
-
-1. **Open Firebase Console** — Navigate to [Firebase Console](https://console.firebase.google.com/)
-2. **Create New Project**
-   - Click **"Create a new Firebase project"**
-   - Enter a project name (e.g., **"agent-concierge"** or your preferred name)
-   - Google Analytics is optional — you can skip it for this workshop
-   - Click **"Create project"** and wait for it to be provisioned
-
-### 3.2 Enable Billing
-
-Firebase Cloud Functions and Secret Manager require billing to be enabled on your Google Cloud project. You must do this before proceeding, otherwise later steps (deploying functions and storing secrets) will fail.
-
-1. In the [Firebase Console](https://console.firebase.google.com/), select your newly created project.
-2. In the bottom-left corner, click on your current plan (e.g., **"Spark"**) → **"Upgrade"**.
-3. Select the **Blaze (pay-as-you-go)** plan.
-4. Choose your billing account (or **"Google Cloud Platform Trial Billing Account"** if available).
-5. Set a budget alert (e.g., **$2 USD**) to avoid unexpected charges.
-6. Click **"Link Cloud Billing Account"** to confirm.
-
-> **Note:** The Blaze plan is pay-as-you-go, but Firebase offers a generous free tier. For a workshop project of this scale, you are very unlikely to incur any charges.
-
-### 3.3 Initialize Firebase
-
-Back in your Google Cloud Shell, while in the project's directory, log in to Firebase using the `--no-localhost` flag, which is required in Cloud Shell because there is no browser available to complete the standard OAuth redirect. This command will print a URL — open it in your local browser, authenticate, and paste the resulting code back into the terminal.
-
-```bash
-firebase login --no-localhost
-```
-
-### 3.4 Configure `.firebaserc`
+### 3.2 Configure `.firebaserc`
 
 The `.firebaserc` file tells the Firebase CLI which Firebase project to target when you run commands like `firebase deploy`. Replace `YOUR_PROJECT_ID` with the actual project ID from your [Firebase Console](https://console.firebase.google.com/).
+
+> **Note:** If you cannot see the `.firebaserc` file, make sure you have "Toggle Hidden Files" enabled in the "View" menu.
 
 **File:** `.firebaserc`
 ```json
@@ -126,7 +143,16 @@ The `.firebaserc` file tells the Firebase CLI which Firebase project to target w
 }
 ```
 
-### 3.5 Configure Firebase Environment
+### 3.3 Initialize Firebase
+
+Now, log in to Firebase using the `--no-localhost` flag, which is required in Cloud Shell because there is no browser available to complete the standard OAuth redirect. This command will print a URL — open it in your local browser, authenticate, and paste the resulting code back into the terminal.
+
+```bash
+# Note: Initializing now as it requires knowing the PROJECT_ID from .firebaserc 
+firebase login --no-localhost
+```
+
+### 3.4 Configure Firebase Environment
 
 The Angular app reads your Firebase project configuration from the environment file. This is how AngularFire knows which Firebase project to connect to when making calls to Cloud Functions.
 
@@ -141,8 +167,9 @@ Before you can copy the config values, you need a web app registered in your Fir
 5. Give your app a name (e.g., **"Agent Concierge Web App"**).
 6. Check the **"Firebase Hosting"** box.
 7. Click **"Register app"**.
+8. For the following steps, you can click on **"Next"** and even the last step where it says **"Continue to Console"**.
 
-Once registered, Firebase will display your app's SDK configuration snippet. Open `src/environments/environment.development.ts` and replace the placeholder values with the real values shown under **"SDK setup and configuration"**.
+Once registered, go to the **"SDK setup and configuration"** section in the project settings and copy the SDK configuration snippet. Open `src/environments/environment.development.ts` and replace the placeholder values with the real values.
 
 **File:** `src/environments/environment.development.ts`
 ```typescript
@@ -160,7 +187,7 @@ export const environment = {
 };
 ```
 
-### 3.6 Enable Required APIs
+### 3.5 Enable Required APIs
 
 Before setting up your API key, you need to enable the Secret Manager API in your Google Cloud project. This API is what allows Firebase Functions to securely store and retrieve your Gemini API key at runtime.
 
@@ -169,55 +196,45 @@ Before setting up your API key, you need to enable the Secret Manager API in you
    - Make sure your Firebase project is selected in the project dropdown
    - Click on "Dashboard" to see the project's overview page
 2. **Enable the Secret Manager API:**
-   - In the left sidebar, go to "APIs & Services" > "Library"
-   - Search for "Secret Manager API"
-   - Click on it and press "Enable"
+   - Click the **Navigation Menu** (hamburger icon ☰) at the top-left of the Google Cloud Console.
+   - Select **"APIs & Services"** > **"Library"**.
+   - Search for **"Secret Manager API"**.
+   - Click on it and press **"Enable"**.
 
 > **Note:** Other APIs (Cloud Functions, etc.) are automatically enabled when you deploy Firebase Functions.
 
-### 3.7 Set up Gemini API Key
+### 3.6 Set up Gemini API Key
 
 Rather than hard-coding your API key in source code (which would be a security risk), you store it as a **Firebase Secret**. Firebase Functions will automatically inject it as an environment variable at runtime, keeping it out of your codebase entirely.
+
+1. **Go back to the terminal** (either the Cloud Shell or the Editor terminal) to continue.
+2. Ensure you are in the project's root directory: `agents-concierge-starter-code`.
+3. Run the following command to set the secret:
 
 ```bash
 firebase functions:secrets:set GEMINI_API_KEY
 ```
-*(When prompted, paste your API key from [Google AI Studio](https://aistudio.google.com/api-keys))*
+
+> **Note:** When prompted to enter the secret, the input is **masked** for security. This means you will not see any characters (not even asterisks) as you paste your key. Simply paste it once and press **Enter**.
+
+*(You can get your API key from [Google AI Studio](https://aistudio.google.com/api-keys))*
 
 ---
 
 ## Step 4: Explore the Project Structure
 
-Take a few minutes to familiarise yourself with the key files before you start coding.
+Take a few minutes to familiarise yourself with the key files in both the frontend and backend directories.
 
-### Frontend (`src/`)
+![Project Structure](public/assets/documentation/project_structure.png)
 
-```
-src/
-├── app/
-│   ├── components/
-│   │   └── chat/
-│   │       ├── chat.ts          ← Chat component logic
-│   │       ├── chat.html        ← Chat UI template
-│   │       └── chat.scss        ← Chat styles
-│   ├── models/
-│   │   └── chat.model.ts        ← TypeScript interfaces
-│   ├── services/
-│   │   └── ai/
-│   │       └── ai.service.ts    ← ⭐ You will build this
-│   └── utils/
-│       └── markdown-utils.ts    ← Markdown rendering helper
-└── environments/
-    ├── environment.ts           ← Production config
-    └── environment.development.ts ← Dev config
-```
+### Key Files Overview
 
-### Backend (`functions/src/`)
-
-```
-functions/src/
-└── index.ts     ← ⭐ Genkit agents & Firebase callable function
-```
+| Path | Description |
+|---|---|
+| `src/app/services/ai/ai.service.ts` | **⭐ You will build this.** Connects the Angular app to Genkit. |
+| `functions/src/index.ts` | **⭐ You will build this.** Contains Genkit agents and Cloud Functions. |
+| `src/app/components/chat/` | Logic, template, and styles for the main chat interface. |
+| `src/app/models/chat.model.ts` | Data interfaces shared across the frontend. |
 
 ### Models (`chat.model.ts`)
 
@@ -469,6 +486,8 @@ This Angular service is the bridge between the chat UI and your Firebase Cloud F
 - **`from()`** — wraps the `Promise` returned by the callable into an RxJS `Observable`, so the chat component can subscribe to it reactively.
 - The method accepts the current user `input` and the full `history` array, forwarding both to the backend so the model has conversation context.
 
+Replace the contents of that `ai.service.ts` file with the code snippet below:
+
 ```typescript
 import { inject, Injectable } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -499,7 +518,11 @@ Navigate to `src/app/app.html`.
 
 ### TODO: Replace all contents with the Chat component reference
 
-The root `app.html` template is the entry point of your Angular application. Replace all the existing placeholder content with a single reference to the `<app-chat>` component. This component (already built in the starter code) renders the full chat interface — the message list, input field, and send button — and wires up to the `AiService` you implemented in Step 6.
+The root `app.html` template is the entry point of your Angular application. Replace all the existing placeholder content with a single reference to the `app-chat` component.
+
+> **Important:** As with any Angular component, you must ensure that `Chat` component is imported into the `imports` array of the component **where** it is being used (in this case, likely `App` component in `app.ts`).
+>
+> Also, since we replaced all contents, you can go ahead and delete the `RouterOutlet` import in the `imports` array, and its corresponding `import` statement at the top of the file, as it is no longer being used in the `App` component.
 
 ```html
 <app-chat />
@@ -522,4 +545,37 @@ ng build
 firebase deploy
 ```
 
+> **Troubleshooting:**
+> If you encounter an error like `HTTP Error: 403, Cloud Billing API has not been used in project [name_of_project] before or it is disabled`, click on the link provided in the terminal on the site to visit to enable the Cloud Billing API. Wait a few seconds for the API to be enabled, return to the terminal, and run the `firebase deploy` command again.
+
 Once deployed, your concierge assistant is live! 🎉
+
+You can now test the application by visiting the **Hosting URL** provided in your terminal output (e.g., `https://your-project-id.web.app`). Open this link in a new browser tab and try asking your assistant natural language questions like:
+* "Can you plan a day trip to Paris?"
+* "What are some good restaurants in Tokyo?"
+* "Find me a route from London to Glasgow."
+
+---
+
+## Step 9: Monitor Genkit Flows and Tools
+
+Genkit integrates natively with Firebase to automatically log telemetry data (traces, metrics, and tool executions) for your deployed flows. This monitoring dashboard is invaluable for debugging and understanding how your AI agents behave in production.
+
+By using the Genkit dashboard, you can:
+- **Inspect Inputs and Outputs:** See exactly what prompt was sent to the Gemini model and what answer it returned.
+- **Track Tool Selection:** See which specific sub-agent (e.g., Foodie Agent vs. Day Trip Agent) the orchestrator chose for a given user query.
+- **Debug Failures:** If a flow fails or an answer seems incorrect, the traces will highlight where the error occurred.
+
+### Set up Genkit Monitoring
+
+Since we enabled telemetry in our code (`enableFirebaseTelemetry()`), we just need to activate the dashboard in the Firebase Console:
+
+1. Go back to your project in the [Firebase Console](https://console.firebase.google.com/).
+2. On the left sidebar menu, find the **"Product categories"** section.
+3. Expand **"AI services"** and click on **"Genkit"**.
+4. Click **"Get Started"**, then under the second option ("Deploy and Monitor Genkit features"), click **"Monitor my app"**.
+5. Select **"Firebase Functions"** as your deployment target and click **"Next"**.
+6. Since we already added the Firebase plugin in our source code earlier, simply click **"Next"** again.
+7. Click on **"Check for metrics"**.
+
+> **Note:** Metrics and traces are not instantaneous. If the dashboard shows no data right away, don't worry! Try sending a few more test queries from your live web app to generate more traffic, then wait about 5 minutes and check the metrics page again.
